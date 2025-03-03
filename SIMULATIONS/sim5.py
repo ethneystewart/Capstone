@@ -24,6 +24,7 @@ sheet_name = 'Hourly Data'
 
 try:
     df = pd.read_excel(file_path, sheet_name=sheet_name)
+    #print(df)
 except FileNotFoundError:
     raise FileNotFoundError(f"Excel file not found: {file_path}")
 except Exception as e:
@@ -44,7 +45,7 @@ B = 1                # Magnetic field strength (T)
 N = 50               # Number of coil turns
 c = 20               # Damping coefficient (Ns/m)
 
-dt = 0.1             # Time step (s)
+dt = 0.5            # Time step (s)
 sim_time = 3600      # Simulation time per hour in seconds (1 hour)
 
 def simulate_hourly_power(wave_height, wave_period):
@@ -56,7 +57,6 @@ def simulate_hourly_power(wave_height, wave_period):
 
     omega = 2 * np.pi / wave_period
     amplitude = wave_height / 2
-
     for i in range(len(time) - 1):
         elapsed_time = time[i]
         wave_disp = amplitude * np.sin(omega * elapsed_time)
@@ -64,7 +64,7 @@ def simulate_hourly_power(wave_height, wave_period):
         wave_acc = -amplitude * omega**2 * np.sin(omega * elapsed_time)
 
         F_morison = (0.5 * rho * Cd * A_buoy * (wave_vel - buoy_vel[i]) * abs(wave_vel - buoy_vel[i]) +
-                     Cm * V * (wave_acc - buoy_acc[i]))
+                     Cm * V * rho * (wave_acc))
         F_spring = k * buoy_disp[i]
         F_damp = c * buoy_vel[i]
 
@@ -78,7 +78,7 @@ def simulate_hourly_power(wave_height, wave_period):
         Pout[i + 1] = V_out**2 / R
 
     total_power_hour = np.sum(Pout) * dt / 3600
-    return total_power_hour, np.max(amplitude)
+    return total_power_hour, np.max(amplitude) #this is amplitude why????
 
 # Simulate for each hour and day
 hourly_data = []
