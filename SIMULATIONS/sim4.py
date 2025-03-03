@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from scipy.optimize import fsolve
-
+from tqdm import tqdm
 
 # Define parameters for the simulation
 rho = 1025          # Density of water (kg/m^3) - correct - taylor
@@ -13,7 +13,7 @@ A_buoy = 0.5        # Cross-sectional area of buoy (m^2)
 V = 1               # Displaced volume of buoy (m^3)
 m = 768.5           # Mass of buoy (kg) -correct - praveen
 A_coil = 0.1        # Coil area (m^2)
-R = 1000              # Electrical resistance (Ohms) - higher -praveen 
+R = 72              # Electrical resistance (Ohms) - higher -praveen 
 
 # for constant wave freq and amplitude 
 wave_freq = 0.5     # Wave frequency (Hz)
@@ -30,7 +30,7 @@ depth_of_water = 27  #meter
 
 # define our time parameters 
 sim_time = 200      # Simulation time (s)
-dt = 0.01           # Time step (s)
+dt = 0.1        # Time step (s)
 
 # Define the parameters to vary
 k_values = [500, 1000, 2000]  # Spring constant (N/m)
@@ -102,7 +102,7 @@ def simulate_buoy(rho, Cd, Cm, A_buoy, V, k, c, m, N, B, A_coil, R, wave_freq, w
     height_margin = 0.5  # Max change in wave height (m)
     period_margin = 1.0  # Max change in wave period (s)
     # Iterate through each time step
-    for i in range(len(time) - 1):
+    for i in tqdm(range(len(time) - 1)):
        
         # Update wave height and period dynamically every few seconds (e.g., every 5 seconds)
         if i % int(5 / dt) == 0:  # Update every 5 seconds
