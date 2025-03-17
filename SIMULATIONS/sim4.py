@@ -133,7 +133,7 @@ def simulate_buoy(rho, Cd, Cm, A_buoy, V, k, c, m, N, B, A_coil, R, wave_freq, w
 
         # Calculate force interacting with the system
         F_morison = (0.5 * rho * Cd * A_buoy * (wave_vel - buoy_vel[i]) * abs(wave_vel - buoy_vel[i]) +
-                    Cm * V * (wave_acc - buoy_acc[i]))
+                    Cm * V *rho*(wave_acc - buoy_acc[i]))
         F_spring = k * buoy_disp[i]
         F_damp = c * buoy_vel[i]
         #print(F_morison)
