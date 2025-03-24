@@ -1,7 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import pandas as pd
 from tqdm import tqdm
+import random 
 
 # Define parameters for the simulation
 rho = 1025          # Density of water (kg/m^3)
@@ -21,10 +23,15 @@ c = 20              # Damping coefficient (Ns/m)
 
 dt = 0.5            # Time step (s)
 sim_time = 3600     # Simulation time per hour in seconds (1 hour)
+time = np.arange(0, sim_time, dt)  # Define time array
+
+# Global variables to store max and min forces over the entire period
+global_max_forces = {'Morison': -np.inf, 'Spring': -np.inf, 'Damping': -np.inf, 'Total': -np.inf}
+global_min_forces = {'Morison': np.inf, 'Spring': np.inf, 'Damping': np.inf, 'Total': np.inf}
 
 # Load Excel file with data
 file_path = 'DATA/DECEMBER 2024.xlsx'
-sheet_name = 'DEC1'
+sheet_name = 'Hourly Data'
 
 try:
     df = pd.read_excel(file_path, sheet_name=sheet_name)
@@ -56,6 +63,8 @@ def jonswap_spectrum(f, Hs, Tp, gamma=3.3):
     g = 9.81  # Gravity (m/s²)
     
     fp = 1 / Tp  # Peak frequency
+    epsilon = 1e-6  # Small number to prevent division by zero
+    f = np.maximum(f, epsilon)  # Ensure f is never zero
     sigma = np.where(f <= fp, 0.07, 0.09)  # Bandwidth parameter (vectorized) - 0.07 for frequencies below peak and 0.09 for frequencies above peak 
     # asymetry accounts for fact that real ocean waves are not symmetrical around peak frequency
 
@@ -122,16 +131,27 @@ def simulate_hourly_power(wave_height, wave_period):
     buoy_acc = np.zeros_like(time)
     Pout = np.zeros_like(time)
 
+    global global_max_forces, global_min_forces  # Track global min/max forces
+    hourly_max_forces = {'Morison': -np.inf, 'Spring': -np.inf, 'Damping': -np.inf, 'Total': -np.inf}
+    hourly_min_forces = {'Morison': np.inf, 'Spring': np.inf, 'Damping': np.inf, 'Total': np.inf}
+
     # Generate complex wave motion
     wave_disp, wave_vel, wave_acc, max_amplitude = complex_wave_displacement(time, wave_height, wave_period)
     
     for i in range(len(time) - 1):
         F_morison = (0.5 * rho * Cd * A_buoy * (wave_vel[i] - buoy_vel[i]) * abs(wave_vel[i] - buoy_vel[i]) +
-                     Cm * V * rho * wave_acc[i])
+                     Cm * V * rho * (wave_acc[i]))
         F_spring = k * buoy_disp[i]
         F_damp = c * buoy_vel[i]
 
         F_total = F_morison - F_spring - F_damp
+
+        # Update min/max for each force component
+        for force_name, force_value in zip(['Morison', 'Spring', 'Damping', 'Total'], 
+                                           [F_morison, F_spring, F_damp, F_total]):
+            hourly_max_forces[force_name] = max(hourly_max_forces[force_name], force_value)
+            hourly_min_forces[force_name] = min(hourly_min_forces[force_name], force_value)
+
         
         buoy_acc[i + 1] = F_total / m
         buoy_vel[i + 1] = buoy_vel[i] + buoy_acc[i + 1] * dt
@@ -139,6 +159,11 @@ def simulate_hourly_power(wave_height, wave_period):
 
         V_out = -N * B * A_coil * buoy_vel[i + 1]
         Pout[i + 1] = V_out**2 / R
+
+        # Update global min/max forces
+    for force_name in global_max_forces.keys():
+        global_max_forces[force_name] = max(global_max_forces[force_name], hourly_max_forces[force_name])
+        global_min_forces[force_name] = min(global_min_forces[force_name], hourly_min_forces[force_name])
 
     total_power_hour = np.trapz(Pout, dx=dt) / 3600
 
@@ -156,13 +181,19 @@ for day, group in tqdm(df.groupby(df['date'].dt.date)):
     for _, row in group.iterrows():
         wave_height = row['wave_height']
         wave_period = row['wave_period']
+        
+        # Compute full wave displacement for this hour
+        wave_disp, _, _, _ = complex_wave_displacement(time, wave_height, wave_period)
+        
         power_hour, max_wave_height = simulate_hourly_power(wave_height, wave_period)
 
+        # Store data for plotting
         hourly_data.append({
             'date': row['date'],
             'wave_height': wave_height,
             'wave_period': wave_period,
-            'power_output': power_hour
+            'power_output': power_hour,
+            'wave_displacement': wave_disp  # Store full wave displacement array
         })
 
         total_power_day += power_hour
@@ -188,36 +219,61 @@ with pd.ExcelWriter('wave_power_results.xlsx') as writer:
 
 print(f"Total power over the entire period: {total_power} kWh")
 
-# Create a figure with 3 subplots in a compact layout
-fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(10, 7))  # Slightly taller for better spacing
+# Print total power and max/min forces
+print(f"Total power over the entire period: {total_power} kWh")
+print("\nMaximum Forces over the month:")
+for force, value in global_max_forces.items():
+    print(f"  {force}: {value:.2f} N")
 
-# Plot daily total power output
-axes[0].plot(daily_summary_df['day'], daily_summary_df['total_power'], marker='o', linestyle='-', label='Total Power Output (kWh)')
-axes[0].set_title('Daily Total Power Output', fontsize=10, fontweight='bold')
-axes[0].tick_params(axis='x', rotation=45, labelsize=8)
-axes[0].tick_params(axis='y', labelsize=8)
-axes[0].grid(True)
-axes[0].legend(fontsize=8)
+print("\nMinimum Forces over the month:")
+for force, value in global_min_forces.items():
+    print(f"  {force}: {value:.2f} N")
 
-# Plot daily max wave height
-axes[1].plot(daily_summary_df['day'], daily_summary_df['max_wave_height'], marker='s', linestyle='-', color='r', label='Max Wave Height (m)')
-axes[1].set_title('Daily Maximum Wave Height', fontsize=10, fontweight='bold')
-axes[1].tick_params(axis='x', rotation=45, labelsize=8)
-axes[1].tick_params(axis='y', labelsize=8)
-axes[1].grid(True)
-axes[1].legend(fontsize=8)
 
-# Plot hourly power output distribution
-axes[2].hist(hourly_data_df['power_output'], bins=30, color='g', alpha=0.7, edgecolor='black')
-axes[2].set_title('Distribution of Hourly Power Output', fontsize=10, fontweight='bold')
-axes[2].tick_params(axis='x', labelsize=8)
-axes[2].tick_params(axis='y', labelsize=8)
-axes[2].grid(True)
+plt.figure(figsize=(10, 5))
+plt.plot(daily_summary_df['day'], daily_summary_df['total_power'], marker='o', linestyle='-')
 
-# Adjust layout for better spacing
-plt.tight_layout()
+# Format the x-axis labels
+plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))  # Format as "Dec 1"
+plt.xticks(rotation=45)  # Rotate for readability
 
-# Increase spacing between subplots while keeping it compact
-plt.subplots_adjust(hspace=0.9, top=0.95, bottom=0.1, left=0.1, right=0.95)
-
+plt.xlabel('Date')
+plt.ylabel('Total Power Output (kWh)')
+plt.title('Total Power Output Over Time')
+plt.grid()
 plt.show()
+
+#visualize the JONSWAP SPECTRAL DENSITY 
+# Select an example row (e.g., first row)
+example_row = df.iloc[random.randint(1, 32)]  # Change index for another row
+
+# Extract example wave height (Hs) and wave period (Tp)
+Hs_example = example_row['wave_height']
+Tp_example = example_row['wave_period']
+print(f"Example Data: Hs = {Hs_example}, Tp = {Tp_example}")
+
+# Define frequency range for spectrum
+frequencies = np.linspace(0, 0.5, 100)  # Adjust range as needed
+
+# Compute JONSWAP spectrum values
+spectrum_values = jonswap_spectrum(frequencies, Hs_example, Tp_example)
+
+# Plot JONSWAP spectrum
+plt.figure(figsize=(10, 5))
+plt.plot(frequencies, spectrum_values, label=f'Hs={Hs_example}, Tp={Tp_example}')
+plt.xlabel('Frequency (Hz)')
+plt.ylabel('Spectral Density (m²/Hz)')
+plt.title('JONSWAP Wave Spectrum for Extracted Data')
+plt.legend()
+plt.grid()
+plt.show()
+
+
+
+
+
+
+
+
+
+

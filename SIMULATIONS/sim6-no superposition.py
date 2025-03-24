@@ -18,7 +18,6 @@ k = 500              # Spring constant (N/m)
 B = 1                # Magnetic field strength (T)
 N = 50               # Number of coil turns
 c = 20               # Damping coefficient (Ns/m)
-
 dt = 0.5            # Time step (s)
 sim_time = 3600      # Simulation time per hour in seconds (1 hour)
 
@@ -99,7 +98,7 @@ def simulate_hourly_power(wave_height, wave_period):
     
     for i in range(len(time) - 1):
         F_morison = (0.5 * rho * Cd * A_buoy * (wave_vel[i] - buoy_vel[i]) * abs(wave_vel[i] - buoy_vel[i]) +
-                     Cm * V * rho * wave_acc[i])
+                     Cm * V * rho * (wave_acc[i]))
         F_spring = k * buoy_disp[i]
         F_damp = c * buoy_vel[i]
 

@@ -9,8 +9,8 @@ rho = 1025          # Density of water (kg/m^3)
 Cd = 0.6            # Drag coefficient
 Cm = 1              # Added mass coefficient
 A_buoy = 0.5        # Cross-sectional area of buoy (m^2)
-V = 1               # Displaced volume of buoy (m^3)
-m = 768.5           # Mass of buoy (kg)
+V = 0.647944        # Displaced volume of buoy (m^3)
+m = 609.06736       # Mass of buoy (kg)
 A_coil = 0.1        # Coil area (m^2)
 R = 72              # Electrical resistance (Ohms)
 
@@ -111,63 +111,45 @@ def complex_wave_displacement(time, wave_height, wave_period, num_waves=10):
         for i in range(num_waves)
     ], axis=0)
 
+    # print("Any NaNs in wave_disp?", np.isnan(wave_disp).any())
+    # print("Any NaNs in wave_vel?", np.isnan(wave_vel).any())
+    # print("Any NaNs in wave_acc?", np.isnan(wave_acc).any())
+    
     return wave_disp, wave_vel, wave_acc, np.max(amplitudes)
 
-from scipy.integrate import solve_ivp
-
-def buoy_dynamics(t, y, wave_disp, wave_vel, wave_acc):
-    """
-    Computes the derivatives for the system [position, velocity].
-
-    y[0] = buoy displacement
-    y[1] = buoy velocity
-    """
-    buoy_disp, buoy_vel = y  # Unpack state variables
-
-    # Interpolate wave values at time t
-    wave_disp_t = np.interp(t, time, wave_disp)
-    wave_vel_t = np.interp(t, time, wave_vel)
-    wave_acc_t = np.interp(t, time, wave_acc)
-
-    # Hydrodynamic forces
-    F_morison = (0.5 * rho * Cd * A_buoy * (wave_vel_t - buoy_vel) * abs(wave_vel_t - buoy_vel) +
-                 Cm * V * rho * wave_acc_t)
-    F_spring = k * buoy_disp
-    F_damp = c * buoy_vel
-    F_total = F_morison - F_spring - F_damp
-
-    # Compute derivatives
-    dydt = [buoy_vel, F_total / m]
-    return dydt
-
 def simulate_hourly_power(wave_height, wave_period):
-    time = np.arange(0, sim_time, dt)  # Define time array
+    time = np.arange(0, sim_time, dt)
+    buoy_disp = np.zeros_like(time)
+    buoy_vel = np.zeros_like(time)
+    buoy_acc = np.zeros_like(time)
+    Pout = np.zeros_like(time)
 
-    # 🌊 Generate complex wave motion
+    # Generate complex wave motion
     wave_disp, wave_vel, wave_acc, max_amplitude = complex_wave_displacement(time, wave_height, wave_period)
 
-    # 🔹 Initial conditions: [displacement, velocity]
-    y0 = [0, 0]
 
-    # 🔹 Solve using Runge-Kutta (RK45)
-    solution = solve_ivp(
-        buoy_dynamics, [0, sim_time], y0, t_eval=time, 
-        args=(wave_disp, wave_vel, wave_acc), method="RK45"
-    )
+    for i in range(len(time) - 1):
+        # print(buoy_acc[i])
+        F_morison = (0.5 * rho * Cd * A_buoy * (wave_vel[i]-buoy_vel[i]) * abs(wave_vel[i]-buoy_vel[i]) +
+                     Cm * V * rho * (wave_acc[i]))
+        F_spring = k * buoy_disp[i]
+        F_damp = c * buoy_vel[i]
+        
+        F_total = F_morison - F_spring - F_damp
+        #if np.isnan(wave_vel[i]) or np.isnan(buoy_vel[i]) or np.isnan(wave_acc[i]) or np.isnan(buoy_acc[i]): print(f"NaN detected at step {i}")
+        # if not np.isnan(F_total):
+        #     print(i, F_total)
+        buoy_acc[i + 1] = F_total / m
+        # print(buoy_acc[i + 1])
+        buoy_vel[i + 1] = buoy_vel[i] + buoy_acc[i + 1] * dt
+        buoy_disp[i + 1] = buoy_disp[i] + buoy_vel[i + 1] * dt
 
-    # Extract solved displacement and velocity
-    buoy_disp_rk4 = solution.y[0]
-    buoy_vel_rk4 = solution.y[1]
+        V_out = -N * B * A_coil * buoy_vel[i + 1]
+        Pout[i + 1] = V_out**2 / R
 
-    # 🔹 Compute power output
-    V_out = -N * B * A_coil * buoy_vel_rk4
-    Pout = V_out**2 / R  # Instantaneous power
-
-    # 🔹 Integrate power over time to get energy (kWh)
-    total_power_hour = np.trapz(Pout, dx=dt) / 3600  # Convert Joules to kWh
+    total_power_hour = np.trapz(Pout, dx=dt) / 3600
 
     return total_power_hour, max_amplitude
-
 
 
 # Simulate for each hour and day

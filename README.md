@@ -25,6 +25,8 @@ GET_DATA.py - this get data from an api for hourly and daily maxes of wave heigh
 
 sim5.py - attempt to integrate a waveheight api into our simulation 
 
+sim6-JONSWAP.py - please ignore this doesnt work but it does have a more commented version of JONSWAP equation explaining exactly what it does 
+
 sim6.py with superposition  - integrates a more complex wave - The JONSWAP spectrum defines how wave energy is distributed across different frequencies by calculating spectral density values (S_f). This determines the amplitude of each frequency component. The superposition method then takes these amplitude-scaled frequency components and sums them with randomized phases, reconstructing a realistic multi-frequency ocean wave. Essentially, JONSWAP sets the energy distribution, and superposition assembles the final wave motion.
 
 sim6.py - no superposiiton - just integrates JONSWAP - The JONSWAP spectrum in this code calculates the wave energy density at the peak frequency only, simplifying the wave model. The superposition method is not used here; instead, the wave motion is simulated using just the dominant frequency component, assuming a sinusoidal motion to approximate real ocean waves.
