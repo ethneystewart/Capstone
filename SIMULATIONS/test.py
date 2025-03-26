@@ -2,18 +2,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from tqdm import tqdm
+from scipy.interpolate import interp1d
 from scipy.integrate import solve_ivp
 
 # Define parameters for the simulation
 rho = 1025          # Density of water (kg/m^3)
 Cd = 0.6            # Drag coefficient
 Cm = 1              # Added mass coefficient
-D = 0.342951*2      # Diameter of buoy (m)
+A_buoy = 0.5        # Cross-sectional area of buoy (m^2)
 V = 0.647944        # Displaced volume of buoy (m^3)
 m = 609.06736       # Mass of buoy (kg)
 A_coil = 0.1        # Coil area (m^2)
 R = 72              # Electrical resistance (Ohms)
 
+D = 0.342951*2 
 
 # Simulation parameters
 k = 500             # Spring constant (N/m)
@@ -36,13 +38,12 @@ except Exception as e:
     raise RuntimeError(f"An error occurred while reading the Excel file: {e}")
 
 # Validate required columns
-required_columns = {'wave_height', 'wave_period', 'date'}
+required_columns = {'wave_height', 'wave_period', 'date', 'ocean_current_velocity'}
 if not required_columns.issubset(df.columns):
     raise ValueError(f"Missing required columns in the dataset: {required_columns - set(df.columns)}")
 
 # Convert 'date' column to datetime
 df['date'] = pd.to_datetime(df['date'])
-
 
 def jonswap_spectrum(f, Hs, Tp, gamma=2):
     """
@@ -118,52 +119,59 @@ def complex_wave_displacement(time, wave_height, wave_period, num_waves=10):
     
     return wave_disp, wave_vel, wave_acc, np.max(amplitudes)
 
+def buoy_ode(t, y, wave_vel_func, wave_acc_func, current_velocity):
+    disp, vel = y
+    fluid_vel = wave_vel_func(t) + current_velocity
+    rel_vel = fluid_vel - vel
+    wave_acc = wave_acc_func(t)
 
-def simulate_hourly_power(wave_height, wave_period):
+    # Geometry and added mass area
+    A_added = (np.pi / 4) * D**2
+
+    # Effective mass (buoy mass + added mass)
+    m_eff = m + Cm * A_added * rho
+
+    # Morison force (now includes acceleration correctly)
+    F_drag = 0.5 * rho * Cd * D * rel_vel * abs(rel_vel)
+    F_added_mass = Cm * A_added * rho * wave_acc
+    F_spring = k * disp
+    F_damp = c * vel
+
+    # Total force (reorganized)
+    F_total = F_drag + F_added_mass - F_spring - F_damp
+
+    # Final acceleration
+    acc = F_total / m_eff
+
+    return [vel, acc]
+
+
+def simulate_hourly_power(wave_height, wave_period, current_velocity):
     time = np.arange(0, sim_time, dt)
-
-    # Generate wave motion using your existing function
+    
+    # Generate wave inputs
     wave_disp, wave_vel, wave_acc, max_amplitude = complex_wave_displacement(time, wave_height, wave_period)
+    
+    # Create interpolators for continuous input into solve_ivp
+    wave_vel_func = interp1d(time, wave_vel, fill_value="extrapolate")
+    wave_acc_func = interp1d(time, wave_acc, fill_value="extrapolate")
+    
+    # Initial state: [displacement, velocity]
+    y0 = [0, 0]
 
-    # Define the ODE system: state = [x, v]
-    def system(t, y):
-        x, v = y
-        
-        # Interpolate wave velocity and acceleration at time t
-        wave_v = np.interp(t, time, wave_vel)
-        wave_a = np.interp(t, time, wave_acc)
-        
-        # Calculate terms
-        delta_v = wave_v - v
-        linear_drag = 0.5 * rho * Cd * D * delta_v * abs(delta_v)
-        inertia_force = rho * Cm ** (np.pi/4) * D**2 * V * wave_a
-        
-        # Denominator includes added mass
-        denominator = m + rho * Cm * V
-        
-        # Total acceleration considering added mass effect
-        a = (linear_drag + inertia_force - k * x - c * v) / denominator
-        
-        return [v, a]
+    # Use RK45 integration (built into solve_ivp)
+    sol = solve_ivp(buoy_ode, [0, sim_time], y0, t_eval=time, 
+                    args=(wave_vel_func, wave_acc_func, current_velocity), method='RK45')
 
+    buoy_disp = sol.y[0]
+    buoy_vel = sol.y[1]
 
-    # Initial conditions: displacement and velocity
-    y0 = [0.0, 0.0]
-
-    # Solve the ODE system with RK45 (adaptive Runge-Kutta)
-    sol = solve_ivp(system, [0, sim_time], y0, t_eval=time, method='RK45')
-
-    # Extract displacement and velocity
-    disp = sol.y[0]
-    vel = sol.y[1]
-
-    # Calculate output voltage and power
-    V_out = -N * B * A_coil * vel
+    # Compute electrical power
+    V_out = -N * B * A_coil * buoy_vel
     Pout = V_out**2 / R
 
-    # Integrate power over time to get total energy in Watt-hours
-    total_power_hour = np.trapz(Pout, dx=dt) / 3600  # divide by 3600 to get Wh
-
+    total_power_hour = np.trapz(Pout, dx=dt) / 3600  # Convert from Ws to kWh
+    
     return total_power_hour, max_amplitude
 
 
@@ -179,11 +187,12 @@ for day, group in tqdm(df.groupby(df['date'].dt.date)):
     for _, row in group.iterrows():
         wave_height = row['wave_height']
         wave_period = row['wave_period']
+        current_velocity = row['ocean_current_velocity']
         
         # Compute full wave displacement for this hour
         wave_disp, _, _, _ = complex_wave_displacement(time, wave_height, wave_period)
         
-        power_hour, max_wave_height = simulate_hourly_power(wave_height, wave_period)
+        power_hour, max_wave_height = simulate_hourly_power(wave_height, wave_period, current_velocity)
 
         # Store data for plotting
         hourly_data.append({

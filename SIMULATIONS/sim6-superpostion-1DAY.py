@@ -14,6 +14,7 @@ m = 609.06736       # Mass of buoy (kg)
 A_coil = 0.1        # Coil area (m^2)
 R = 72              # Electrical resistance (Ohms)
 
+D = 0.342951*2 
 
 # Simulation parameters
 k = 500             # Spring constant (N/m)
@@ -130,8 +131,8 @@ def simulate_hourly_power(wave_height, wave_period):
 
     for i in range(len(time) - 1):
         # print(buoy_acc[i])
-        F_morison = (0.5 * rho * Cd * A_buoy * (wave_vel[i]-buoy_vel[i]) * abs(wave_vel[i]-buoy_vel[i]) +
-                     Cm * V * rho * (wave_acc[i]))
+        F_morison = (0.5 * rho * Cd * D * (wave_vel[i]-buoy_vel[i]) * abs(wave_vel[i]-buoy_vel[i]) +
+                     Cm * (np.pi/4)* D**2 * rho * (wave_acc[i]))
         F_spring = k * buoy_disp[i]
         F_damp = c * buoy_vel[i]
         

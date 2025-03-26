@@ -14,6 +14,7 @@ m = 768.5           # Mass of buoy (kg)
 A_coil = 0.1        # Coil area (m^2)
 R = 72              # Electrical resistance (Ohms)
 
+D = 0.342951*2  #diameter of buoy (m)
 
 # Simulation parameters
 k = 500             # Spring constant (N/m)
@@ -36,7 +37,7 @@ except Exception as e:
     raise RuntimeError(f"An error occurred while reading the Excel file: {e}")
 
 # Validate required columns
-required_columns = {'wave_height', 'wave_period', 'date'}
+required_columns = {'wave_height', 'wave_period', 'date', 'ocean_current_velocity'}
 if not required_columns.issubset(df.columns):
     raise ValueError(f"Missing required columns in the dataset: {required_columns - set(df.columns)}")
 
@@ -79,7 +80,7 @@ def generate_wave_components(Hs, Tp, num_waves=10):
     # Correct amplitude estimation from significant wave height
     amplitudes = (Hs / np.sqrt(2)) * np.sqrt(S_f / S_f.sum())  
     """
-    in ocean wave theory significant wave height is related to root mean sware wave height 
+    in ocean wave theory significant wave height is related to root mean square wave height 
     this conversion was nescessary because wave amplitudes are normally distributed 
 
     second part takes square root of the normalized spectral density to adjust the amplitude to correctly match the wave energy distribution 
@@ -115,7 +116,7 @@ def complex_wave_displacement(time, wave_height, wave_period, num_waves=10):
 
 from scipy.integrate import solve_ivp
 
-def buoy_dynamics(t, y, wave_disp, wave_vel, wave_acc):
+def buoy_dynamics(t, y, wave_disp, wave_vel, wave_acc, current_vel):
     """
     Computes the derivatives for the system [position, velocity].
 
@@ -130,8 +131,10 @@ def buoy_dynamics(t, y, wave_disp, wave_vel, wave_acc):
     wave_acc_t = np.interp(t, time, wave_acc)
 
     # Hydrodynamic forces
-    F_morison = (0.5 * rho * Cd * A_buoy * (wave_vel_t - buoy_vel) * abs(wave_vel_t - buoy_vel) +
-                 Cm * V * rho * wave_acc_t)
+    fluid_vel = wave_vel_t + current_vel
+    rel_vel = fluid_vel - buoy_vel
+    F_morison = (0.5 * rho * Cd * D * (rel_vel) * abs(rel_vel) +
+                 Cm * (np.pi/4)*D**2 * rho * wave_acc_t)
     F_spring = k * buoy_disp
     F_damp = c * buoy_vel
     F_total = F_morison - F_spring - F_damp
@@ -140,7 +143,7 @@ def buoy_dynamics(t, y, wave_disp, wave_vel, wave_acc):
     dydt = [buoy_vel, F_total / m]
     return dydt
 
-def simulate_hourly_power(wave_height, wave_period):
+def simulate_hourly_power(wave_height, wave_period , current_velocity):
     time = np.arange(0, sim_time, dt)  # Define time array
 
     # 🌊 Generate complex wave motion
@@ -152,7 +155,7 @@ def simulate_hourly_power(wave_height, wave_period):
     # 🔹 Solve using Runge-Kutta (RK45)
     solution = solve_ivp(
         buoy_dynamics, [0, sim_time], y0, t_eval=time, 
-        args=(wave_disp, wave_vel, wave_acc), method="RK45"
+        args=(wave_disp, wave_vel, wave_acc, current_velocity), method="RK45"
     )
 
     # Extract solved displacement and velocity
@@ -181,11 +184,12 @@ for day, group in tqdm(df.groupby(df['date'].dt.date)):
     for _, row in group.iterrows():
         wave_height = row['wave_height']
         wave_period = row['wave_period']
+        current_velocity = row['ocean_current_velocity']
         
         # Compute full wave displacement for this hour
         wave_disp, _, _, _ = complex_wave_displacement(time, wave_height, wave_period)
         
-        power_hour, max_wave_height = simulate_hourly_power(wave_height, wave_period)
+        power_hour, max_wave_height = simulate_hourly_power(wave_height, wave_period, current_velocity)
 
         # Store data for plotting
         hourly_data.append({
