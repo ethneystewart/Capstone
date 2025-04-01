@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import pandas as pd
 from tqdm import tqdm
 from scipy.interpolate import interp1d
@@ -28,7 +29,7 @@ time = np.arange(0, sim_time, dt)  # Define time array
 
 # Load Excel file with data
 file_path = 'DATA/DECEMBER 2024.xlsx'
-sheet_name = 'DEC1'
+sheet_name = 'Hourly Data'
 
 try:
     df = pd.read_excel(file_path, sheet_name=sheet_name)
@@ -183,6 +184,7 @@ daily_summary = []
 for day, group in tqdm(df.groupby(df['date'].dt.date)):
     total_power_day = 0
     max_wave_height_day = 0
+    max_wave_period_day = 0  
 
     for _, row in group.iterrows():
         wave_height = row['wave_height']
@@ -205,6 +207,7 @@ for day, group in tqdm(df.groupby(df['date'].dt.date)):
 
         total_power_day += power_hour
         max_wave_height_day = max(max_wave_height_day, max_wave_height)
+        max_wave_period_day = max(max_wave_period_day, row['wave_period'])
    
     daily_summary.append({
         'day': day,
@@ -216,6 +219,18 @@ for day, group in tqdm(df.groupby(df['date'].dt.date)):
 hourly_data_df = pd.DataFrame(hourly_data)
 daily_summary_df = pd.DataFrame(daily_summary)
 
+hourly_df = pd.DataFrame(hourly_data)
+# Add 'day' column for grouping
+hourly_df['day'] = hourly_df['date'].dt.date
+
+# Calculate daily averages
+daily_avg_disp = hourly_df.groupby('day')['wave_displacement'].apply(lambda disps: np.mean([np.mean(d) for d in disps]))
+daily_avg_period = hourly_df.groupby('day')['wave_period'].mean()
+
+# Add to daily_summary_df
+daily_summary_df['avg_wave_disp'] = daily_summary_df['day'].map(daily_avg_disp)
+daily_summary_df['avg_wave_period'] = daily_summary_df['day'].map(daily_avg_period)
+
 # Calculate total power over the entire period
 total_power = daily_summary_df['total_power'].sum()
 
@@ -224,61 +239,39 @@ with pd.ExcelWriter('wave_power_results.xlsx') as writer:
     hourly_data_df.to_excel(writer, sheet_name='Hourly Data', index=False)
     daily_summary_df.to_excel(writer, sheet_name='Daily Summary', index=False)
 
+
+print("\n=== Total Power Output Per Day ===")
+for _, row in daily_summary_df.iterrows():
+    print(f"{row['day']}: {row['total_power']:.3f} kWh")
+
+
 print(f"Total power over the entire period: {total_power} kWh")
 
-import matplotlib.dates as mdates
+fig, axs = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
 
-#this will output for a days worth of the power otput each hour and the inputted wave height from api 
-# Create figure and subplots
-fig, ax = plt.subplots(2, 1, figsize=(12, 8), sharex=True)  # 2 rows, 1 column
+# --- Plot 1: Total Power ---
+axs[0].plot(daily_summary_df['day'], daily_summary_df['total_power'], 'b-o')
+axs[0].set_ylabel('Total Power (kWh)')
+axs[0].set_title('Daily Power Output')
+axs[0].grid(True)
 
-# 📊 Subplot 1: Power Output Over Time
-ax[0].plot(hourly_data_df['date'], hourly_data_df['power_output'], label='Power Output (kWh)', color='b')
-ax[0].set_ylabel("Power Output (kWh)")
-ax[0].set_title("Hourly Power Output & Wave Displacement Over Time")
-ax[0].legend()
-ax[0].grid(True)
+# --- Plot 2: Avg Wave Displacement ---
+axs[1].plot(daily_summary_df['day'], daily_summary_df['avg_wave_disp'], 'g--s')
+axs[1].set_ylabel('Avg Wave Disp (m)')
+axs[1].set_title('Daily Average Wave Displacement')
+axs[1].grid(True)
 
-# 📊 Subplot 2: Wave Displacement Over Time
-ax[1].plot(hourly_data_df['date'], hourly_data_df['wave_height'], label='Wave Displacement (m)', color='r')
-ax[1].set_xlabel("Date & Time")
-ax[1].set_ylabel("Wave Displacement (m)")
-ax[1].legend()
-ax[1].grid(True)
+# --- Plot 3: Avg Wave Period ---
+axs[2].plot(daily_summary_df['day'], daily_summary_df['avg_wave_period'], 'r--^')
+axs[2].set_ylabel('Avg Wave Period (s)')
+axs[2].set_title('Daily Average Wave Period')
+axs[2].grid(True)
 
-# 🕒 Auto-adjust x-axis formatting for date & time
-ax[1].xaxis.set_major_formatter(mdates.DateFormatter('%b %d\n%H:%M'))  # Show Date + Time
-ax[1].xaxis.set_major_locator(mdates.HourLocator(interval=3))  # Show every 3 hours
-plt.xticks(rotation=45, ha='right')  # Rotate labels for better readability
+# Format x-axis only on bottom plot
+axs[2].xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
+axs[2].set_xlabel('Date')
+plt.xticks(rotation=45)
 
-# Show the plot
 plt.tight_layout()
 plt.show()
 
-# Select a specific hour to visualize (e.g., first recorded hour)
-selected_hour_index = 2  # Change this index to pick a different hour
-selected_row = hourly_data_df.iloc[selected_hour_index]
-
-# Extract time and wave displacement for that hour
-wave_disp = selected_row['wave_displacement']
-
-# Create time array for plotting (same length as wave_disp)
-time_plot = np.arange(0, sim_time, dt)  # One-hour time scale
-
-# Downsample factor (plot every nth point)
-downsample_factor = 10  # Adjust this for more or less smoothing
-
-# Select every nth point for cleaner visualization
-time_plot_downsampled = time_plot[::downsample_factor]
-wave_disp_downsampled = wave_disp[::downsample_factor]
-
-# Plot Wave Displacement (Downsampled)
-plt.figure(figsize=(12, 6))
-plt.plot(time_plot_downsampled, wave_disp_downsampled, label="Wave Displacement (Smoothed)", color='r')
-
-plt.xlabel("Time (s)")
-plt.ylabel("Wave Displacement (m)")
-plt.title("Wave Displacement Over One Hour (Downsampled)")
-plt.legend()
-plt.grid(True)
-plt.show()

@@ -13,6 +13,8 @@ m = 768.5           # Mass of buoy (kg)
 A_coil = 0.1        # Coil area (m^2)
 R = 72              # Electrical resistance (Ohms)
 
+D = 0.342951*2     # Diameter of buoy (m)
+
 # Simulation parameters
 k = 500              # Spring constant (N/m)
 B = 1                # Magnetic field strength (T)
@@ -33,7 +35,7 @@ except Exception as e:
     raise RuntimeError(f"An error occurred while reading the Excel file: {e}")
 
 # Validate required columns
-required_columns = {'wave_height', 'wave_period', 'date'}
+required_columns = {'wave_height', 'wave_period', 'date', }
 if not required_columns.issubset(df.columns):
     raise ValueError(f"Missing required columns in the dataset: {required_columns - set(df.columns)}")
 
@@ -86,7 +88,7 @@ def complex_wave_displacement(time, wave_height, wave_period):
     return wave_disp, wave_vel, wave_acc, amplitude
 
 
-def simulate_hourly_power(wave_height, wave_period):
+def simulate_hourly_power(wave_height, wave_period, current_vel):
     time = np.arange(0, sim_time, dt)
     buoy_disp = np.zeros_like(time)
     buoy_vel = np.zeros_like(time)
@@ -97,8 +99,8 @@ def simulate_hourly_power(wave_height, wave_period):
     wave_disp, wave_vel, wave_acc, max_amplitude = complex_wave_displacement(time, wave_height, wave_period)
     
     for i in range(len(time) - 1):
-        F_morison = (0.5 * rho * Cd * A_buoy * (wave_vel[i] - buoy_vel[i]) * abs(wave_vel[i] - buoy_vel[i]) +
-                     Cm * V * rho * (wave_acc[i]))
+        F_morison = (0.5 * rho * Cd * D * (wave_vel[i] + current_vel -buoy_vel[i]) * abs(wave_vel[i] + current_vel -buoy_vel[i]) +
+                     Cm * (np.pi/4)* D**2 * rho * (wave_acc[i]))
         F_spring = k * buoy_disp[i]
         F_damp = c * buoy_vel[i]
 
@@ -127,7 +129,8 @@ for day, group in tqdm(df.groupby(df['date'].dt.date)):
     for _, row in group.iterrows():
         wave_height = row['wave_height']
         wave_period = row['wave_period']
-        power_hour, max_wave_height = simulate_hourly_power(wave_height, wave_period)
+        current_vel = row['ocean_current_velocity']
+        power_hour, max_wave_height = simulate_hourly_power(wave_height, wave_period, current_vel)
 
         hourly_data.append({
             'date': row['date'],

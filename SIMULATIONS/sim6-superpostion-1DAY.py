@@ -6,8 +6,8 @@ from scipy.integrate import solve_ivp
 
 # Define parameters for the simulation
 rho = 1025          # Density of water (kg/m^3)
-Cd = 0.6            # Drag coefficient
-Cm = 1              # Added mass coefficient
+Cd = 0.65            # Drag coefficient
+Cm = 1.6            # Added mass coefficient
 A_buoy = 0.5        # Cross-sectional area of buoy (m^2)
 V = 0.647944        # Displaced volume of buoy (m^3)
 m = 609.06736       # Mass of buoy (kg)
@@ -37,7 +37,7 @@ except Exception as e:
     raise RuntimeError(f"An error occurred while reading the Excel file: {e}")
 
 # Validate required columns
-required_columns = {'wave_height', 'wave_period', 'date'}
+required_columns = {'wave_height', 'wave_period', 'date','ocean_current_velocity'}
 if not required_columns.issubset(df.columns):
     raise ValueError(f"Missing required columns in the dataset: {required_columns - set(df.columns)}")
 
@@ -118,7 +118,7 @@ def complex_wave_displacement(time, wave_height, wave_period, num_waves=10):
     
     return wave_disp, wave_vel, wave_acc, np.max(amplitudes)
 
-def simulate_hourly_power(wave_height, wave_period):
+def simulate_hourly_power(wave_height, wave_period , current_vel):
     time = np.arange(0, sim_time, dt)
     buoy_disp = np.zeros_like(time)
     buoy_vel = np.zeros_like(time)
@@ -131,10 +131,10 @@ def simulate_hourly_power(wave_height, wave_period):
 
     for i in range(len(time) - 1):
         # print(buoy_acc[i])
-        F_morison = (0.5 * rho * Cd * D * (wave_vel[i]-buoy_vel[i]) * abs(wave_vel[i]-buoy_vel[i]) +
+        F_morison = (0.5 * rho * Cd * D * (wave_vel[i] + current_vel -buoy_vel[i]) * abs(wave_vel[i] + current_vel -buoy_vel[i]) +
                      Cm * (np.pi/4)* D**2 * rho * (wave_acc[i]))
         F_spring = k * buoy_disp[i]
-        F_damp = c * buoy_vel[i]
+        F_damp = c * buoy_vel[i] 
         
         F_total = F_morison - F_spring - F_damp
         #if np.isnan(wave_vel[i]) or np.isnan(buoy_vel[i]) or np.isnan(wave_acc[i]) or np.isnan(buoy_acc[i]): print(f"NaN detected at step {i}")
@@ -164,11 +164,12 @@ for day, group in tqdm(df.groupby(df['date'].dt.date)):
     for _, row in group.iterrows():
         wave_height = row['wave_height']
         wave_period = row['wave_period']
+        current_vel = row['ocean_current_velocity']
         
         # Compute full wave displacement for this hour
         wave_disp, _, _, _ = complex_wave_displacement(time, wave_height, wave_period)
         
-        power_hour, max_wave_height = simulate_hourly_power(wave_height, wave_period)
+        power_hour, max_wave_height = simulate_hourly_power(wave_height, wave_period, current_vel)
 
         # Store data for plotting
         hourly_data.append({

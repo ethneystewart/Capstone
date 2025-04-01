@@ -43,7 +43,7 @@ except Exception as e:
     raise RuntimeError(f"An error occurred while reading the Excel file: {e}")
 
 # Validate required columns
-required_columns = {'wave_height', 'wave_period', 'date'}
+required_columns = {'wave_height', 'wave_period', 'date', 'ocean_current_velocity'}
 if not required_columns.issubset(df.columns):
     raise ValueError(f"Missing required columns in the dataset: {required_columns - set(df.columns)}")
 
@@ -126,7 +126,7 @@ def complex_wave_displacement(time, wave_height, wave_period, num_waves=10):
     return wave_disp, wave_vel, wave_acc, np.max(amplitudes)
 
 
-def simulate_hourly_power(wave_height, wave_period):
+def simulate_hourly_power(wave_height, wave_period, current_vel):
     time = np.arange(0, sim_time, dt)
     buoy_disp = np.zeros_like(time)
     buoy_vel = np.zeros_like(time)
@@ -141,7 +141,7 @@ def simulate_hourly_power(wave_height, wave_period):
     wave_disp, wave_vel, wave_acc, max_amplitude = complex_wave_displacement(time, wave_height, wave_period)
     
     for i in range(len(time) - 1):
-        F_morison = (0.5 * rho * Cd * D * (wave_vel[i]-buoy_vel[i]) * abs(wave_vel[i]-buoy_vel[i]) +
+        F_morison = (0.5 * rho * Cd * D * (wave_vel[i] + current_vel -buoy_vel[i]) * abs(wave_vel[i] + current_vel -buoy_vel[i]) +
                      Cm * (np.pi/4)* D**2 * rho * (wave_acc[i]))
         F_spring = k * buoy_disp[i]
         F_damp = c * buoy_vel[i]
@@ -183,11 +183,12 @@ for day, group in tqdm(df.groupby(df['date'].dt.date)):
     for _, row in group.iterrows():
         wave_height = row['wave_height']
         wave_period = row['wave_period']
+        current_velocity = row['ocean_current_velocity']
         
         # Compute full wave displacement for this hour
         wave_disp, _, _, _ = complex_wave_displacement(time, wave_height, wave_period)
         
-        power_hour, max_wave_height = simulate_hourly_power(wave_height, wave_period)
+        power_hour, max_wave_height = simulate_hourly_power(wave_height, wave_period, current_velocity)
 
         # Store data for plotting
         hourly_data.append({

@@ -6,15 +6,15 @@ from scipy.integrate import solve_ivp
 
 # Define parameters for the simulation
 rho = 1025          # Density of water (kg/m^3)
-Cd = 0.6            # Drag coefficient
-Cm = 1              # Added mass coefficient
-A_buoy = 0.5        # Cross-sectional area of buoy (m^2)
+Cd = 0.65            # Drag coefficient
+Cm = 1.6              # Added mass coefficient
+# A_buoy = 0.5        # Cross-sectional area of buoy (m^2)
+D = 0.342951*2      #diameter of buoy (m)
 V = 1               # Displaced volume of buoy (m^3)
 m = 768.5           # Mass of buoy (kg)
 A_coil = 0.1        # Coil area (m^2)
 R = 72              # Electrical resistance (Ohms)
 
-D = 0.342951*2  #diameter of buoy (m)
 
 # Simulation parameters
 k = 500             # Spring constant (N/m)
@@ -27,7 +27,7 @@ time = np.arange(0, sim_time, dt)  # Define time array
 
 # Load Excel file with data
 file_path = 'DATA/DECEMBER 2024.xlsx'
-sheet_name = 'DEC1'
+sheet_name = 'DEC13'
 
 try:
     df = pd.read_excel(file_path, sheet_name=sheet_name)
