@@ -8,7 +8,6 @@ from scipy.integrate import solve_ivp
 rho = 1025          # Density of water (kg/m^3)
 Cd = 0.65            # Drag coefficient
 Cm = 1.6              # Added mass coefficient
-# A_buoy = 0.5        # Cross-sectional area of buoy (m^2)
 D = 0.342951*2      #diameter of buoy (m)
 V = 1               # Displaced volume of buoy (m^3)
 m = 768.5           # Mass of buoy (kg)
@@ -169,7 +168,7 @@ def simulate_hourly_power(wave_height, wave_period , current_velocity):
     # 🔹 Integrate power over time to get energy (kWh)
     total_power_hour = np.trapz(Pout, dx=dt) / 3600  # Convert Joules to kWh
 
-    return total_power_hour, max_amplitude
+    return total_power_hour, max_amplitude, wave_disp
 
 
 
@@ -186,10 +185,7 @@ for day, group in tqdm(df.groupby(df['date'].dt.date)):
         wave_period = row['wave_period']
         current_velocity = row['ocean_current_velocity']
         
-        # Compute full wave displacement for this hour
-        wave_disp, _, _, _ = complex_wave_displacement(time, wave_height, wave_period)
-        
-        power_hour, max_wave_height = simulate_hourly_power(wave_height, wave_period, current_velocity)
+        power_hour, max_wave_height, wave_disp = simulate_hourly_power(wave_height, wave_period, current_velocity)
 
         # Store data for plotting
         hourly_data.append({
