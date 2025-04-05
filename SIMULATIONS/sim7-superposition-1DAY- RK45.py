@@ -6,9 +6,9 @@ from scipy.integrate import solve_ivp
 
 # Define parameters for the simulation
 rho = 1025          # Density of water (kg/m^3)
-Cd = 0.65            # Drag coefficient
-Cm = 1.6              # Added mass coefficient
-D = 0.342951*2      #diameter of buoy (m)
+Cd = 0.65           # Drag coefficient
+Cm = 1.6            # Added mass coefficient
+D = 0.342951*2      #Diameter of buoy (m)
 V = 1               # Displaced volume of buoy (m^3)
 m = 768.5           # Mass of buoy (kg)
 A_coil = 0.1        # Coil area (m^2)
@@ -18,7 +18,7 @@ R = 72              # Electrical resistance (Ohms)
 # Simulation parameters
 k = 500             # Spring constant (N/m)
 B = 1               # Magnetic field strength (T)
-N = 50              # Number of coil turns
+N = 50             # Number of coil turns
 c = 20              # Damping coefficient (Ns/m)
 dt = 0.5            # Time step (s)
 sim_time = 3600     # Simulation time per hour in seconds (1 hour)
@@ -45,14 +45,14 @@ df['date'] = pd.to_datetime(df['date'])
 
 def jonswap_spectrum(f, Hs, Tp, gamma=2):
     """
-    Compute the JONSWAP spectral density for a given frequency.
+    Computes the JONSWAP spectral density for a given frequency.
     spectral density of ocean waves based on jonswap spectrum
     
     Hs: Significant wave height (m) - avg high of one-third of waves
     Tp: Peak wave period (s) - period at which max wave energy occurs 
-    gamma: Peak enhancement factor (typically 3.3) - controls sharpness of the spectrum around the peak frequency
+    gamma: Peak enhancement factor (2 chosen based off study on west coast of africa) - controls sharpness of the spectrum around the peak frequency
 
-    returns spectral density S(f) at the given frequency f - which represents how wave energy  is distributed across different frequencies 
+    returns spectral density S(f) at the given frequency f - which represents how wave energy is distributed across different frequencies 
     """
     g = 9.81  # Gravity (m/s²)
     
@@ -113,7 +113,6 @@ def complex_wave_displacement(time, wave_height, wave_period, num_waves=10):
 
     return wave_disp, wave_vel, wave_acc, np.max(amplitudes)
 
-from scipy.integrate import solve_ivp
 
 def buoy_dynamics(t, y, wave_disp, wave_vel, wave_acc, current_vel):
     """
@@ -145,27 +144,27 @@ def buoy_dynamics(t, y, wave_disp, wave_vel, wave_acc, current_vel):
 def simulate_hourly_power(wave_height, wave_period , current_velocity):
     time = np.arange(0, sim_time, dt)  # Define time array
 
-    # 🌊 Generate complex wave motion
+    # Generate complex wave motion
     wave_disp, wave_vel, wave_acc, max_amplitude = complex_wave_displacement(time, wave_height, wave_period)
 
-    # 🔹 Initial conditions: [displacement, velocity]
+    #Initial conditions: [displacement, velocity]
     y0 = [0, 0]
 
-    # 🔹 Solve using Runge-Kutta (RK45)
+    #Solve using Runge-Kutta (RK45)
     solution = solve_ivp(
         buoy_dynamics, [0, sim_time], y0, t_eval=time, 
         args=(wave_disp, wave_vel, wave_acc, current_velocity), method="RK45"
     )
 
-    # Extract solved displacement and velocity
+    #Extract solved displacement and velocity
     buoy_disp_rk4 = solution.y[0]
     buoy_vel_rk4 = solution.y[1]
 
-    # 🔹 Compute power output
+    #Compute power output
     V_out = -N * B * A_coil * buoy_vel_rk4
     Pout = V_out**2 / R  # Instantaneous power
 
-    # 🔹 Integrate power over time to get energy (kWh)
+    #Integrate power over time to get energy (kWh)
     total_power_hour = np.trapz(Pout, dx=dt) / 3600  # Convert Joules to kWh
 
     return total_power_hour, max_amplitude, wave_disp
@@ -225,21 +224,21 @@ import matplotlib.dates as mdates
 # Create figure and subplots
 fig, ax = plt.subplots(2, 1, figsize=(12, 8), sharex=True)  # 2 rows, 1 column
 
-# 📊 Subplot 1: Power Output Over Time
+#Subplot 1: Power Output Over Time
 ax[0].plot(hourly_data_df['date'], hourly_data_df['power_output'], label='Power Output (kWh)', color='b')
 ax[0].set_ylabel("Power Output (kWh)")
 ax[0].set_title("Hourly Power Output & Wave Displacement Over Time")
 ax[0].legend()
 ax[0].grid(True)
 
-# 📊 Subplot 2: Wave Displacement Over Time
+#Subplot 2: Wave Displacement Over Time
 ax[1].plot(hourly_data_df['date'], hourly_data_df['wave_height'], label='Wave Displacement (m)', color='r')
 ax[1].set_xlabel("Date & Time")
 ax[1].set_ylabel("Wave Displacement (m)")
 ax[1].legend()
 ax[1].grid(True)
 
-# 🕒 Auto-adjust x-axis formatting for date & time
+# Auto-adjust x-axis formatting for date & time
 ax[1].xaxis.set_major_formatter(mdates.DateFormatter('%b %d\n%H:%M'))  # Show Date + Time
 ax[1].xaxis.set_major_locator(mdates.HourLocator(interval=3))  # Show every 3 hours
 plt.xticks(rotation=45, ha='right')  # Rotate labels for better readability

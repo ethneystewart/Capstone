@@ -216,13 +216,12 @@ hourly_df = pd.DataFrame(hourly_data)
 # Add 'day' column for grouping
 hourly_df['day'] = hourly_df['date'].dt.date
 
-# Calculate daily averages
-daily_avg_disp = hourly_df.groupby('day')['wave_displacement'].apply(lambda disps: np.mean([np.mean(d) for d in disps]))
-daily_avg_period = hourly_df.groupby('day')['wave_period'].mean()
+# Calculate daily average wave height
+daily_avg_height = hourly_df.groupby('day')['wave_height'].mean()
 
 # Add to daily_summary_df
-daily_summary_df['avg_wave_disp'] = daily_summary_df['day'].map(daily_avg_disp)
-daily_summary_df['avg_wave_period'] = daily_summary_df['day'].map(daily_avg_period)
+daily_summary_df['avg_wave_height'] = daily_summary_df['day'].map(daily_avg_height)
+
 
 # Calculate total power over the entire period
 total_power = daily_summary_df['total_power'].sum()
@@ -242,17 +241,21 @@ for _, row in daily_summary_df.iterrows():
 print(f"Total power over the entire period: {total_power} kWh")
 
 
-# Plot JONSWAP spectrum
 plt.figure(figsize=(10, 5))
-plt.plot(frequencies, spectrum_values, label=f'Hs={Hs_example}, Tp={Tp_example}')
-plt.xlabel('Frequency (Hz)')
-plt.ylabel('Spectral Density (m²/Hz)')
-plt.title('JONSWAP Wave Spectrum for Extracted Data')
-plt.legend()
+plt.plot(daily_summary_df['day'], daily_summary_df['total_power'], marker='o', linestyle='-')
+
+# Format the x-axis labels
+plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))  # Format as "Dec 1"
+plt.xticks(rotation=45)  # Rotate for readability
+
+plt.xlabel('Date')
+plt.ylabel('Total Power Output (kWh)')
+plt.title('Total Power Output Over Time')
 plt.grid()
 plt.show()
 
-fig, axs = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
+
+fig, axs = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
 
 # --- Plot 1: Total Power ---
 axs[0].plot(daily_summary_df['day'], daily_summary_df['total_power'], 'b-o')
@@ -260,23 +263,18 @@ axs[0].set_ylabel('Total Power (kWh)')
 axs[0].set_title('Daily Power Output')
 axs[0].grid(True)
 
-# --- Plot 2: Avg Wave Displacement ---
-axs[1].plot(daily_summary_df['day'], daily_summary_df['avg_wave_disp'], 'g--s')
-axs[1].set_ylabel('Avg Wave Disp (m)')
-axs[1].set_title('Daily Average Wave Displacement')
+# --- Plot 2: Avg Wave Height ---
+axs[1].plot(daily_summary_df['day'], daily_summary_df['avg_wave_height'], 'g--s')
+axs[1].set_ylabel('Avg Wave Height (m)')
+axs[1].set_title('Daily Average Wave Height')
 axs[1].grid(True)
 
-# --- Plot 3: Avg Wave Period ---
-axs[2].plot(daily_summary_df['day'], daily_summary_df['avg_wave_period'], 'r--^')
-axs[2].set_ylabel('Avg Wave Period (s)')
-axs[2].set_title('Daily Average Wave Period')
-axs[2].grid(True)
-
-# Format x-axis only on bottom plot
-axs[2].xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
-axs[2].set_xlabel('Date')
+# Format x-axis
+axs[1].xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
+axs[1].set_xlabel('Date')
 plt.xticks(rotation=45)
 
 plt.tight_layout()
 plt.show()
+
 
