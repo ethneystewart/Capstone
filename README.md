@@ -5,6 +5,7 @@ numpy
 matplotlib.pyplot 
 pandas
 tqdm
+openpyxl
 
 sim1.py - starting chatgpt simulation build simple sinusodial and constant wave force
 
@@ -23,6 +24,10 @@ api website: https://open-meteo.com/en/docs/marine-weather-api#latitude=-33.0153
 
 GET_DATA.py - this get data from an api for hourly and daily maxes of wave height period and direction around east london and stores it in a excel file 
 
+For Dec 1st data use sheet - DEC1
+For Dec 13th data use sheet - DEC13 
+For month of Decmeber 2024 use sheet - Hourly Power
+
 sim5.py - attempt to integrate a waveheight api into our simulation 
 
 sim6-JONSWAP.py - please ignore this doesnt work but it does have a more commented version of JONSWAP equation explaining exactly what it does 
@@ -30,3 +35,12 @@ sim6-JONSWAP.py - please ignore this doesnt work but it does have a more comment
 sim6.py with superposition  - integrates a more complex wave - The JONSWAP spectrum defines how wave energy is distributed across different frequencies by calculating spectral density values (S_f). This determines the amplitude of each frequency component. The superposition method then takes these amplitude-scaled frequency components and sums them with randomized phases, reconstructing a realistic multi-frequency ocean wave. Essentially, JONSWAP sets the energy distribution, and superposition assembles the final wave motion.
 
 sim6.py - no superposiiton - just integrates JONSWAP - The JONSWAP spectrum in this code calculates the wave energy density at the peak frequency only, simplifying the wave model. The superposition method is not used here; instead, the wave motion is simulated using just the dominant frequency component, assuming a sinusoidal motion to approximate real ocean waves.
+
+sim7.py - The largest change is changing our integration method from eulers to RK45 utilizing the scipy package. 
+
+Requirements:
+
+from scipy.interpolate import interp1d
+from scipy.integrate import solve_ivp
+
+Wave3D.py - this is just sim7.py with a 3D model of our wave model outputted at the end. 
