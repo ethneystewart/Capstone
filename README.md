@@ -25,8 +25,10 @@ api website: https://open-meteo.com/en/docs/marine-weather-api#latitude=-33.0153
 GET_DATA.py - this get data from an api for hourly and daily maxes of wave height period and direction around east london and stores it in a excel file 
 
 For Dec 1st data use sheet - DEC1
+
 For Dec 13th data use sheet - DEC13 
-For month of Decmeber 2024 use sheet - Hourly Power
+
+For month of December 2024 use sheet - Hourly Power
 
 sim5.py - attempt to integrate a waveheight api into our simulation 
 
