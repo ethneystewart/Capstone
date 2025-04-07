@@ -7,7 +7,7 @@ pandas
 tqdm
 openpyxl
 
-sim1.py - starting chatgpt simulation build simple sinusodial and constant wave force
+sim1.py - starting simulation build simple sinusodial and constant wave force
 
 sim2.py - still uses a constant wave force and simple sinusodial varies parameters using array and then runs simulation through the varying params to find best choice 
 
