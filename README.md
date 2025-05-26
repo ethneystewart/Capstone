@@ -1,177 +1,94 @@
-Capstone Project: Wave Energy Simulation
+#  Capstone Project: Wave Energy Simulation
 
 This was my final-year capstone project, completed in collaboration with three other students over an academic year. We aimed to design and simulate a wave energy harvesting system capable of converting ocean wave motion into electrical energy.
 
-My primary contribution was leading the project's mathematical modelling and simulation aspect. I developed and implemented numerical simulations in Python to model the dynamic response of a buoy subjected to ocean wave forces. This involved:
+## My Role
 
-Building simulations ranging from basic sinusoidal wave models to more complex representations using real-world data and the JONSWAP spectrum.
+I led the **mathematical modelling and simulation** component of the project. I developed and implemented numerical simulations in Python to model the dynamic response of a buoy subjected to ocean wave forces.
 
-Integrating physical parameters such as buoyancy, damping, and wave excitation forces into differential equations that describe the system's motion.
+This involved:
 
-Exploring different numerical integration methods, ultimately transitioning from Euler’s method to Runge-Kutta (RK45) for improved accuracy and stability.
+- Building simulations ranging from basic sinusoidal wave models to more complex representations using real-world data and the JONSWAP spectrum.
+- Integrating physical parameters such as buoyancy, damping, and wave excitation forces into differential equations describing system motion.
+- Exploring different numerical integration methods, ultimately transitioning from **Euler’s method to Runge-Kutta (RK45)** for improved accuracy and stability.
+- Incorporating real marine data from the **Open-Meteo Marine API** to simulate realistic ocean conditions.
+- Collaborating closely with the team to interpret physical models, validate assumptions, and guide design decisions based on simulation results.
 
-Incorporating real wave data via the Open-Meteo Marine API to simulate realistic ocean conditions.
+This project gave me hands-on experience in computational modelling of physical systems, handling environmental datasets, and applying advanced numerical techniques within a multidisciplinary team.
 
-Collaborating closely with team members to interpret physical models, validate assumptions, and guide design decisions based on simulation results.
+---
 
-This project gave me hands-on experience translating physical systems into computational models, working with real environmental data, and applying advanced numerical techniques—all within a collaborative, multidisciplinary environment.
+## Dependencies
 
-Dependencies
-Install the following packages:
+Install required packages:
 
-bash
-Copy
-Edit
+```bash
 pip install numpy matplotlib pandas tqdm openpyxl
 pip install openmeteo-requests requests-cache retry-requests
-Also requires:
+pip install scipy
+```
+## 📁 Simulation Files Overview
 
-python
-Copy
-Edit
-from scipy.interpolate import interp1d  
-from scipy.integrate import solve_ivp
-Simulation Files Overview
-sim1.py
-Basic simulation using constant and sinusoidal wave forces.
+### `sim1.py`
+- Basic simulation using **constant** and **sinusoidal** wave forces.
 
-sim2.py
-Builds on sim1.py. Varies parameters (e.g., buoy mass, damping) and runs the simulation for each combination to find the optimal setup.
+### `sim2.py`
+- Expands on `sim1.py`.
+- Varies parameters (e.g., mass, damping) and runs multiple simulations to find the optimal configuration.
 
-sim3.py
-First attempt at using real wave data to calculate force more accurately. Currently has issues with converging wave height.
+### `sim3.py`
+- First attempt to use **real wave height data** to calculate wave forces.
+- Currently experiences convergence issues in wave height calculations.
 
-sim4.py
-Used for midterm presentation. Randomizes wave height and period using min/max values and adjusts them every 5 seconds to simulate real ocean variability.
+### `sim4.py`
+- **Midterm version**.
+- Randomizes wave height and period values (within a range) every 5 seconds to simulate natural wave variability.
 
-sim5.py
-Integrates wave height API data into the simulation.
+### `sim5.py`
+- Begins integration of **live wave data from an API** into the simulation.
 
-sim6.py (no superposition)
-Uses the JONSWAP spectrum to simulate ocean waves with a single peak frequency. Simple sinusoidal approximation.
+### `sim6.py` *(no superposition)*
+- Uses the **JONSWAP spectrum** to model waves using only the **dominant frequency** (simplified approach).
 
-sim6.py with superposition
-More advanced wave modeling using the JONSWAP spectrum + superposition to simulate realistic multi-frequency ocean waves.
+### `sim6.py with superposition`
+- Implements a **realistic multi-frequency wave model**:
+  - Calculates energy distribution using JONSWAP.
+  - Applies superposition of frequency components with randomized phases to simulate complex ocean wave behavior.
 
-sim6-JONSWAP.py
-Does not run properly, but contains well-commented JONSWAP equations for reference.
+### `sim6-JONSWAP.py`
+- Not fully functional.
+- Includes **well-commented** JONSWAP equations for reference and understanding.
 
-sim7.py
-Switches from Euler’s method to Runge-Kutta (RK45) for more accurate integration using SciPy.
+### `sim7.py`
+- Replaces Euler’s method with **RK45 integration** (`solve_ivp`) for improved numerical accuracy.
 
-Wave3D.py
-Same as sim7.py but includes a 3D plot of the wave model at the end.
+### `Wave3D.py`
+- Version of `sim7.py` that outputs a **3D visualization** of wave motion.
 
-API Integration
-GET_DATA.py
-Fetches wave height, period, and direction data from the Open-Meteo Marine API.
-Stores data in an Excel file with the following sheets:
+---
 
-DEC1 — Data from December 1st, 2024
+## API Integration
 
-DEC13 — Data from December 13th, 2024
+### `GET_DATA.py`
 
-Hourly Power — Hourly data for the full month of December 2024
+Fetches marine weather data using the [Open-Meteo Marine API](https://open-meteo.com/en/docs/marine-weather-api), including:
 
-Let me know if you'd like a version formatted for GitHub or with visuals/graphics included.
+- Wave height
+- Wave period
+- Wave direction
+
+Data is saved into an Excel file with the following sheets:
+
+- `DEC1` — Data from December 1st, 2024  
+- `DEC13` — Data from December 13th, 2024  
+- `Hourly Power` — Hourly data for the full month of December 2024
+
+---
+
+## Notes
+
+- Some simulation files are exploratory or iterative; refer to comments within the scripts for development details.
+- The **JONSWAP model** is used in two versions: a simplified peak-frequency model and a more complex multi-frequency version with superposition.
+- Wave realism increases progressively from `sim1.py` through `sim6.py`, culminating in a fully dynamic RK45 simulation in `sim7.py`.
 
 
-
-
-
-
-
-You said:
-can you give me a version formatted for github
-
-
-ChatGPT said:
-Absolutely! Here's a GitHub-friendly version of your README, with clear headers, code blocks, and markdown formatting:
-
-🌊 Capstone Project: Wave Energy Simulation
-This project simulates a wave energy harvesting system using progressively more complex wave models, including real-world marine data and the JONSWAP spectrum.
-
-📦 Requirements
-Install dependencies using pip:
-
-bash
-Copy
-Edit
-pip install numpy matplotlib pandas tqdm openpyxl
-pip install openmeteo-requests requests-cache retry-requests
-Also used in later simulations:
-
-python
-Copy
-Edit
-from scipy.interpolate import interp1d
-from scipy.integrate import solve_ivp
-📁 Simulation Files Overview
-sim1.py
-Basic simulation using a constant and sinusoidal wave force.
-
-sim2.py
-Builds on sim1.py.
-
-Varies parameters (e.g., damping, mass) using arrays and runs simulations to find optimal configurations.
-
-sim3.py
-Attempts to calculate wave force using real wave height data.
-
-Includes an iterative approach to determine wave force, but currently has convergence issues.
-
-sim4.py
-Midterm version.
-
-Uses randomized wave height and period (based on min/max ranges) and adjusts them every 5 seconds to mimic natural ocean changes.
-
-sim5.py
-First integration of wave height API data into the simulation.
-
-sim6.py (no superposition)
-Uses the JONSWAP spectrum to simulate ocean waves using only the dominant frequency.
-
-Simple sinusoidal wave approximation.
-
-sim6.py with superposition
-Advanced modeling using the JONSWAP spectrum + superposition:
-
-Wave energy is distributed across multiple frequencies.
-
-Components are summed with randomized phases for realistic ocean behavior.
-
-sim6-JONSWAP.py
-This version does not work properly, but contains well-commented JONSWAP equations for educational/reference purposes.
-
-sim7.py
-Replaces Euler's method with RK45 (Runge-Kutta) integration via solve_ivp from SciPy.
-
-More accurate and stable for dynamic wave systems.
-
-Wave3D.py
-Same as sim7.py, but includes a 3D plot visualizing the final wave model output.
-
-🌐 API Integration
-GET_DATA.py
-Pulls hourly and daily marine weather data from the Open-Meteo Marine API.
-
-Data includes:
-
-Wave height
-
-Wave period
-
-Wave direction
-
-📊 Data is saved into an Excel file with the following sheets:
-
-DEC1 — December 1st, 2024
-
-DEC13 — December 13th, 2024
-
-Hourly Power — All hourly data from December 2024
-
-📌 Notes
-Some simulations are exploratory and experimental — see comments in files for more context.
-
-The JONSWAP model offers both a simplified and realistic version of wave formation. Choose based on the fidelity needed.
